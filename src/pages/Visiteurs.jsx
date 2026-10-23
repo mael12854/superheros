@@ -58,39 +58,58 @@ function Formulaire() {
   );
 }
 
-// Pour un chef : remplir ce qui manque à un visiteur.
-function Completer({ visiteur, fermer, apres }) {
-  const [f, setF] = useState({});
+// Pour un chef : compléter ce qui manque à un visiteur, ou modifier toute sa fiche.
+// mode « completer » = seulement les champs vides ; mode « modifier » = tous les champs, déjà remplis.
+const enSon = (label) => label.replace(/^Ton |^Ta |^Le nom de ton /, (m) => (m === 'Le nom de ton ' ? 'Le nom de son ' : m === 'Ton ' ? 'Son ' : 'Sa '));
+
+function FicheChef({ visiteur, mode, fermer, apres }) {
+  const modifier = mode === 'modifier';
+  const depart = Object.fromEntries(CHAMPS_VISITEUR.map((c) => [c.cle, c.cle === 'dateNaissance' && visiteur.dateNaissance
+    ? visiteur.dateNaissance.split('-').reverse().join(' / ')
+    : (visiteur[c.cle] || '')]));
+  const [f, setF] = useState(modifier ? depart : {});
   const [code, setCode] = useState('');
   const [erreur, setErreur] = useState('');
-  const aRemplir = CHAMPS_VISITEUR.filter((c) => visiteur.manquants.includes(c.cle));
+  // Prénom et nom forment l'identifiant du compte : on ne les change pas.
+  const champs = CHAMPS_VISITEUR.filter((c) => c.cle !== 'prenom' && c.cle !== 'nom' && (modifier || visiteur.manquants.includes(c.cle)));
   const manqueCode = visiteur.manquants.includes('code');
 
   async function envoyer(e) {
     e.preventDefault();
     setErreur('');
+    const changes = {};
+    for (const c of champs) if (f[c.cle] && f[c.cle] !== depart[c.cle]) changes[c.cle] = f[c.cle];
     try {
-      await api('visiteurs/completer', { methode: 'POST', corps: { id: visiteur.id, ...f, code } });
+      await api('visiteurs/completer', { methode: 'POST', corps: { id: visiteur.id, ...changes, code } });
       apres();
     } catch (err) { setErreur(err.message); }
   }
 
   return (
-    <form className="carte alerte ombre" onSubmit={envoyer}>
-      <h3>Compléter la fiche de {visiteur.prenom} {visiteur.nom}</h3>
-      <p style={{ fontSize: 16 }}>Demande-lui ses réponses et écris-les exactement comme il ou elle les dira au contrôle d'entrée.</p>
+    <form className={`carte ombre${modifier ? '' : ' alerte'}`} onSubmit={envoyer}>
+      <h3>{modifier ? 'Modifier' : 'Compléter'} la fiche de {visiteur.prenom} {visiteur.nom}</h3>
+      <p style={{ fontSize: 16 }}>
+        {modifier
+          ? 'Attention : le visiteur devra donner ces nouvelles réponses au contrôle d\'entrée.'
+          : 'Demande-lui ses réponses et écris-les exactement comme il ou elle les dira au contrôle d\'entrée.'}
+      </p>
       <div className="grille" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))' }}>
-        {aRemplir.map((c) => (
+        {champs.map((c) => (
           <label key={c.cle} className="etiquette">
-            <span>{c.label.replace(/^Ton |^Ta |^Le nom de ton /, (m) => (m === 'Le nom de ton ' ? 'Le nom de son ' : m === 'Ton ' ? 'Son ' : 'Sa '))}</span>
+            <span>{enSon(c.label)}</span>
             <Champ type={c.type} valeur={f[c.cle] || ''} onChange={(v) => setF((x) => ({ ...x, [c.cle]: v }))} maxLength={c.maxLength || 120} required />
           </label>
         ))}
-        {manqueCode && <div className="etiquette"><span>Son code secret</span><ChampCode valeur={code} onChange={setCode} montrer /></div>}
+        {(manqueCode || modifier) && (
+          <div className="etiquette">
+            <span>{manqueCode ? 'Son code secret' : 'Nouveau code secret (laisse vide pour garder l\'ancien)'}</span>
+            <ChampCode valeur={code} onChange={setCode} montrer />
+          </div>
+        )}
       </div>
       {erreur && <div className="erreur" role="alert">{erreur}</div>}
       <div className="rangee">
-        <button className="btn principal" type="submit" disabled={manqueCode && code.length < 4}>Enregistrer</button>
+        <button className="btn principal" type="submit" disabled={(manqueCode && code.length < 4) || (code.length > 0 && code.length < 4)}>Enregistrer</button>
         <button className="btn" type="button" onClick={fermer}>Annuler</button>
       </div>
     </form>
@@ -121,7 +140,7 @@ function PanneauChef() {
           ⚠ IL MANQUE DES DONNÉES À {incomplets.length > 1 ? `${incomplets.length} VISITEURS` : 'UN VISITEUR'}. Ils ne peuvent pas entrer tant que leur fiche n'est pas complète.
         </div>
       )}
-      {ouvert && <Completer visiteur={ouvert} fermer={() => setOuvert(null)} apres={() => { setOuvert(null); charger(); window.dispatchEvent(new Event('m2-etat')); }} />}
+      {ouvert && <FicheChef key={ouvert.v.id + ouvert.mode} visiteur={ouvert.v} mode={ouvert.mode} fermer={() => setOuvert(null)} apres={() => { setOuvert(null); charger(); window.dispatchEvent(new Event('m2-etat')); }} />}
       {liste?.length === 0 && <p>Aucun compte visiteur.</p>}
       {liste?.length > 0 && (
         <div className="defile">
@@ -142,7 +161,9 @@ function PanneauChef() {
                     )}
                   </td>
                   <td className="rangee">
-                    {v.manquants.length > 0 && <button className="btn danger petit" type="button" onClick={() => setOuvert(v)}>Compléter</button>}
+                    {v.manquants.length > 0
+                      ? <button className="btn danger petit" type="button" onClick={() => setOuvert({ v, mode: 'completer' })}>Compléter</button>
+                      : <button className="btn principal petit" type="button" onClick={() => setOuvert({ v, mode: 'modifier' })}>Modifier</button>}
                     {v.statut === 'valide'
                       ? <button className="btn petit" type="button" onClick={() => statut(v, 'en-attente')}>Suspendre</button>
                       : <button className="btn principal petit" type="button" onClick={() => statut(v, 'valide')}>Valider</button>}

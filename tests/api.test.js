@@ -207,3 +207,15 @@ test('un chef peut modifier la fiche d\'un agent (dessert préféré)', async ()
   assert.equal(r.agent.nomHeros, 'Turbo Marin');
   assert.equal(r.agent.codeHache, undefined);
 });
+
+test('un chef peut modifier la fiche d\'un visiteur (et son code)', async () => {
+  const r = await appel('POST', 'visiteurs/completer', { id: 'v-jean-dupont', dessert: 'Tiramisu', code: '6481' }, jeton);
+  assert.equal(r.visiteur.dessert, 'Tiramisu');
+  assert.equal(r.visiteur.prenom, 'Jean');
+  const rep = {
+    prenom: 'Jean', nom: 'Dupont', dateNaissance: '02/04/1955', age: String(ageLe('1955-04-02')),
+    adresse: '12 rue du Port', codePostal: '29200', ville: 'Brest', entree: 'Huîtres', plat: 'Galette',
+    dessert: 'Tiramisu', couleur: 'Vert', pouvoir: 'Raconter des histoires', chef: 'Marin', code: '6481',
+  };
+  assert.equal((await appel('POST', 'visiteurs/entree', { reponses: rep }, null, '', '10.0.9.1')).acces, 'OUI');
+});
