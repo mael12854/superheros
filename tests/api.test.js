@@ -162,7 +162,6 @@ test('code admin : ouvre les outils chef, refusé si faux', async () => {
   assert.equal(oui.ok, true);
   assert.ok((await appel('GET', 'agents', {}, oui.jeton)).agents.length >= 1);
   delete process.env.CODE_ADMIN;
-  await assert.rejects(appel('GET', 'agents', {}, oui.jeton), /admin désactivé/);
 });
 
 test('visiteur ancien sans toutes les données : alerte, refusé, puis complété par un chef', async () => {
@@ -186,4 +185,17 @@ test('visiteur ancien sans toutes les données : alerte, refusé, puis complét�
   assert.deepEqual(c.visiteur.manquants, []);
   assert.equal((await appel('GET', 'etat')).visiteursIncomplets, 0);
   assert.equal((await appel('POST', 'visiteurs/entree', { reponses: rep }, null, '', '10.0.2.2')).acces, 'OUI');
+});
+
+test('code admin = le premier chef (un seul compte)', async () => {
+  process.env.CODE_ADMIN = '987650';
+  const r = await appel('POST', 'chef/connexion', { admin: true, code: '987650' }, null, '', '10.8.0.1');
+  assert.equal(r.nomHeros, 'Captain Circuit', 'le code admin connecte en tant que chef n° 001');
+  const parNom = await appel('POST', 'chef/connexion', { nomHeros: 'Captain Circuit', code: '987650' }, null, '', '10.8.0.2');
+  assert.equal(parNom.ok, true, 'le premier chef peut utiliser le code admin');
+  const autre = await appel('POST', 'chef/connexion', { nomHeros: 'Turbo Marin', code: '987650' }, null, '', '10.8.0.3');
+  assert.equal(autre.statut, 401, 'pas les autres chefs');
+  await appel('POST', 'alarme/arret', {}, r.jeton);
+  assert.equal((await appel('GET', 'alarme')).arreteePar, 'Captain Circuit');
+  delete process.env.CODE_ADMIN;
 });

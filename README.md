@@ -23,7 +23,7 @@ Variables d'environnement à régler dans Vercel → Settings → Environment Va
 | --- | --- |
 | `BLOB_STORE_ID` | Ajoutée toute seule quand on relie un store **Blob privé** au projet (Storage → Blob). Le site s'y connecte avec le jeton OIDC de Vercel, sans clé à copier. |
 | `SESSION_SECRET` | Au moins 32 caractères au hasard. Signe les sessions des chefs. |
-| `CODE_ADMIN` | Le code admin (chiffres). Ouvre tous les outils chef et sert à installer le QG. **Jamais dans le code.** |
+| `CODE_ADMIN` | Le code admin (chiffres). Sert à installer le QG. Ensuite, c'est le même compte que le premier chef (n° 001, SuperMaël) : se connecter avec le code admin = être ce chef. **Jamais dans le code.** |
 
 Première fois : ouvrir `/installation`, remplir la fiche du premier chef et taper le code admin.
 

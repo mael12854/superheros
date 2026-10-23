@@ -410,15 +410,23 @@ function codeAdminOk(code) {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
+// Le code admin et le premier chef (celui qui a installé le QG : SuperMaël) sont un seul compte.
+// Se connecter avec le code admin, c'est être ce chef-là.
 const ADMIN = { id: 'admin', nomHeros: 'Admin', role: 'chef' };
+
+async function chefAdmin() {
+  const chefs = (await tousLesAgents()).filter((a) => a.role === 'chef');
+  return chefs[0] || null; // triés par numéro : le n° 001 en premier
+}
 
 async function exigerChef(req) {
   const auth = req.headers.authorization || '';
   const data = lireJeton(auth.replace(/^Bearer\s+/i, ''));
   if (!data) throw new ErreurHttp(401, 'Réservé aux chefs. Connecte-toi.');
   if (data.id === 'admin') {
+    // Ancien jeton « Admin » : il devient le premier chef.
     if (!process.env.CODE_ADMIN) throw new ErreurHttp(401, 'Mode admin désactivé.');
-    return ADMIN;
+    return (await chefAdmin()) || ADMIN;
   }
   const agent = await lireAgent(data.id);
   if (!agent || agent.role !== 'chef') throw new ErreurHttp(403, 'Réservé aux chefs.');
@@ -433,11 +441,14 @@ async function routeConnexion(req, corps) {
   if (corps.admin) {
     if (codeAdminOk(corps.code)) {
       await ecrireCompteur('chef', req, { echecs: 0, bloqueJusqua: 0 });
-      return { ok: true, jeton: creerJeton(ADMIN), nomHeros: ADMIN.nomHeros };
+      const qui = (await chefAdmin()) || ADMIN;
+      return { ok: true, jeton: creerJeton(qui), nomHeros: qui.nomHeros };
     }
   }
   const agent = corps.admin ? null : await lireAgent(slug(corps.nomHeros));
-  const codeOk = await bcrypt.compare(String(corps.code ?? ''), agent?.codeHache || HACHE_LEURRE);
+  const codePerso = await bcrypt.compare(String(corps.code ?? ''), agent?.codeHache || HACHE_LEURRE);
+  // Le premier chef peut aussi entrer avec le code admin.
+  const codeOk = codePerso || (agent && codeAdminOk(corps.code) && agent.id === (await chefAdmin())?.id);
   if (agent && agent.role === 'chef' && codeOk) {
     await ecrireCompteur('chef', req, { echecs: 0, bloqueJusqua: 0 });
     return { ok: true, jeton: creerJeton(agent), nomHeros: agent.nomHeros };
