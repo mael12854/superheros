@@ -27,11 +27,8 @@ export const QUESTIONS_ENTREE = [
   { cle: 'code', question: 'Ton code secret ?', type: 'code' },
 ];
 
-const QUESTIONS_VISITEUR = [
-  { cle: 'prenom', question: 'Ton prénom ?' },
-  { cle: 'nom', question: 'Ton nom de famille ?' },
-  { cle: 'code', question: 'Ton code secret ?', type: 'code' },
-];
+// Visiteurs : les mêmes questions, sans le nom de héros ni la question piège (14).
+const QUESTIONS_VISITEUR = QUESTIONS_ENTREE.filter((q) => q.cle !== 'nomHeros' && q.cle !== 'lettres');
 
 export default function Entree() {
   const [qui, setQui] = useState(null);

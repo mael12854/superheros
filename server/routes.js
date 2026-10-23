@@ -206,7 +206,40 @@ function routeEntree(req, corps) {
 
 // ---------- Visiteurs ----------
 // Un visiteur crée son compte lui-même, puis un chef le valide.
-// Contrôles plus courts que pour les agents, mais même alarme et même liste rouge.
+// Entrée : 14 questions (comme les agents, sans le nom de héros ni la question piège),
+// même alarme et même liste rouge. Sortie : prénom, nom et code.
+
+// Les réponses demandées au contrôle d'entrée des visiteurs (+ le lien avec l'Agence).
+const CHAMPS_VISITEUR = ['prenom', 'nom', 'dateNaissance', 'adresse', 'codePostal', 'ville', 'entree', 'plat', 'dessert', 'couleur', 'pouvoir', 'chef', 'lien'];
+
+// Liste des données qui manquent à un visiteur (les anciens comptes n'avaient que prénom, nom, lien, code).
+function champsManquants(v) {
+  const manque = CHAMPS_VISITEUR.filter((c) => !String(v[c] ?? '').trim());
+  if (!v.codeHache) manque.push('code');
+  return manque;
+}
+
+// Vérifie et nettoie les champs envoyés. « partiel » = on ne garde que ceux qui sont remplis.
+function nettoyerChampsVisiteur(corps, partiel) {
+  const fiche = {};
+  for (const champ of CHAMPS_VISITEUR) {
+    const brut = String(corps[champ] ?? '').trim().slice(0, 120);
+    if (!brut) {
+      if (partiel) continue;
+      throw new ErreurHttp(400, `Le champ « ${champ} » est vide.`);
+    }
+    if (champ === 'dateNaissance') {
+      const d = dateISO(brut);
+      if (!d) throw new ErreurHttp(400, 'Date de naissance invalide (JJ / MM / AAAA).');
+      fiche[champ] = d;
+    } else if (champ === 'codePostal') {
+      const cp = chiffres(brut);
+      if (cp.length !== 5) throw new ErreurHttp(400, 'Le code postal doit avoir 5 chiffres.');
+      fiche[champ] = cp;
+    } else fiche[champ] = brut;
+  }
+  return fiche;
+}
 
 const MAX_VISITEURS_EN_ATTENTE = 30;
 
@@ -236,12 +269,7 @@ function nomVisiteur(v) {
 }
 
 async function creerVisiteur(corps) {
-  const fiche = {};
-  for (const champ of ['prenom', 'nom', 'lien']) {
-    const v = String(corps[champ] ?? '').trim().slice(0, 60);
-    if (!v) throw new ErreurHttp(400, `Le champ « ${champ} » est vide.`);
-    fiche[champ] = v;
-  }
+  const fiche = nettoyerChampsVisiteur(corps, false);
   const code = String(corps.code ?? '');
   if (codeTropFacile(code)) throw new ErreurHttp(400, 'Code secret trop facile ou invalide (4 à 6 chiffres, pas 1234 ni 0000).');
   const id = idVisiteur(fiche.prenom, fiche.nom);
@@ -265,7 +293,24 @@ async function verifierEntreeVisiteur(r) {
   if (await surListeRouge({ nomHeros: '', prenom: r.prenom, nom: r.nom })) return null;
   const v = await lireVisiteur(idVisiteur(r.prenom, r.nom));
   const codeOk = await bcrypt.compare(String(r.code ?? ''), v?.codeHache || HACHE_LEURRE);
-  if (!v || v.statut !== 'valide' || !codeOk) return null;
+  // Un visiteur à qui il manque des données ne peut pas entrer.
+  if (!v || v.statut !== 'valide' || !codeOk || champsManquants(v).length > 0) return null;
+  const tests = [
+    identique(r.prenom, v.prenom),
+    identique(r.nom, v.nom),
+    memeDate(r.dateNaissance, v.dateNaissance),
+    chiffres(r.age) === String(ageLe(v.dateNaissance)),
+    identique(r.adresse, v.adresse),
+    chiffres(r.codePostal) === v.codePostal,
+    identique(r.ville, v.ville),
+    identique(r.entree, v.entree),
+    identique(r.plat, v.plat),
+    identique(r.dessert, v.dessert),
+    identique(r.couleur, v.couleur),
+    identique(r.pouvoir, v.pouvoir),
+    identique(r.chef, v.chef),
+  ];
+  if (!tests.every(Boolean)) return null;
   return { id: v.id, nomHeros: nomVisiteur(v), visiteur: true };
 }
 
@@ -483,6 +528,8 @@ export async function router(methode, route, req, corps, query) {
         installe: await existeUnChef(),
         alarme: await lireAlarme(),
         bloqueJusqua: estBloque(compteur) ? compteur.bloqueJusqua : 0,
+        // Seulement un nombre : pas de nom, pas de donnée personnelle.
+        visiteursIncomplets: (await tousLesVisiteurs()).filter((v) => champsManquants(v).length > 0).length,
         stockage: modeStockage,
       };
     }
@@ -513,7 +560,25 @@ export async function router(methode, route, req, corps, query) {
 
     case 'GET visiteurs':
       await exigerChef(req);
-      return { visiteurs: (await tousLesVisiteurs()).map(visiteurSansSecret) };
+      return { visiteurs: (await tousLesVisiteurs()).map((v) => ({ ...visiteurSansSecret(v), manquants: champsManquants(v) })) };
+
+    case 'POST visiteurs/completer': {
+      await exigerChef(req);
+      const v = await lireVisiteur(corps.id);
+      if (!v) throw new ErreurHttp(404, 'Visiteur introuvable.');
+      const ajouts = nettoyerChampsVisiteur(corps, true);
+      // Le prénom et le nom donnent l'identifiant du compte : on ne les change pas ici.
+      delete ajouts.prenom;
+      delete ajouts.nom;
+      Object.assign(v, ajouts);
+      if (corps.code) {
+        const code = String(corps.code);
+        if (codeTropFacile(code)) throw new ErreurHttp(400, 'Code secret trop facile ou invalide.');
+        v.codeHache = await bcrypt.hash(code, COUT_BCRYPT);
+      }
+      await ecrireJSON(`visiteurs/${v.id}.json`, v);
+      return { ok: true, visiteur: { ...visiteurSansSecret(v), manquants: champsManquants(v) } };
+    }
 
     case 'POST visiteurs/statut': {
       const chef = await exigerChef(req);

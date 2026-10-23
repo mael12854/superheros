@@ -123,16 +123,25 @@ test('menu, anniversaires, missions, gadgets, mot du jour', async () => {
 });
 
 test('visiteurs : compte en attente, validé par un chef, puis entrée et sortie', async () => {
-  const papi = { prenom: 'Jean', nom: 'Dupont', lien: 'Grand-père', code: '5917' };
+  const papi = {
+    prenom: 'Jean', nom: 'Dupont', lien: 'Grand-père', code: '5917', dateNaissance: '02/04/1955',
+    adresse: '12 rue du Port', codePostal: '29200', ville: 'Brest', entree: 'Huîtres', plat: 'Galette',
+    dessert: 'Far breton', couleur: 'Vert', pouvoir: 'Raconter des histoires', chef: 'Marin',
+  };
   await assert.rejects(appel('POST', 'visiteurs', { ...papi, code: '1234' }), /trop facile/);
   const c = await appel('POST', 'visiteurs', papi);
   assert.equal(c.visiteur.statut, 'en-attente');
   assert.equal(c.visiteur.codeHache, undefined);
-  const rep = { prenom: 'jean', nom: 'DUPONT', code: '5917' };
+  const rep = {
+    prenom: 'jean', nom: 'DUPONT', dateNaissance: '02 / 04 / 1955', age: String(ageLe('1955-04-02')),
+    adresse: '12 rue du port', codePostal: '29200', ville: 'brest', entree: 'huitres', plat: 'galette',
+    dessert: 'far breton', couleur: 'vert', pouvoir: 'raconter des histoires', chef: 'marin', code: '5917',
+  };
   const adr = '10.0.1.1';
   assert.equal((await appel('POST', 'visiteurs/entree', { reponses: rep }, null, '', adr)).acces, 'NON', 'pas encore validé');
   await assert.rejects(appel('POST', 'visiteurs/statut', { id: c.visiteur.id, statut: 'valide' }), /chefs/);
   await appel('POST', 'visiteurs/statut', { id: c.visiteur.id, statut: 'valide' }, jeton);
+  assert.equal((await appel('POST', 'visiteurs/entree', { reponses: { ...rep, plat: 'Crêpe' } }, null, '', adr)).acces, 'NON', 'une réponse fausse sur 14');
   const e = await appel('POST', 'visiteurs/entree', { reponses: rep }, null, '', adr);
   assert.equal(e.acces, 'OUI');
   const p = await appel('GET', 'presents');
@@ -154,4 +163,27 @@ test('code admin : ouvre les outils chef, refusé si faux', async () => {
   assert.ok((await appel('GET', 'agents', {}, oui.jeton)).agents.length >= 1);
   delete process.env.CODE_ADMIN;
   await assert.rejects(appel('GET', 'agents', {}, oui.jeton), /admin désactivé/);
+});
+
+test('visiteur ancien sans toutes les données : alerte, refusé, puis complété par un chef', async () => {
+  const { ecrireJSON } = await import('../server/stockage.js');
+  const bcrypt = (await import('bcryptjs')).default;
+  await ecrireJSON('visiteurs/v-ancien-copain.json', {
+    id: 'v-ancien-copain', prenom: 'Ancien', nom: 'Copain', lien: 'Copain',
+    codeHache: bcrypt.hashSync('7351', 4), statut: 'valide', creeLe: new Date().toISOString(),
+  });
+  assert.equal((await appel('GET', 'etat')).visiteursIncomplets, 1);
+  const liste = await appel('GET', 'visiteurs', {}, jeton);
+  assert.ok(liste.visiteurs.find((v) => v.id === 'v-ancien-copain').manquants.includes('plat'));
+  const rep = {
+    prenom: 'Ancien', nom: 'Copain', dateNaissance: '01/01/2017', age: String(ageLe('2017-01-01')),
+    adresse: '1 rue A', codePostal: '35000', ville: 'Rennes', entree: 'Soupe', plat: 'Pâtes',
+    dessert: 'Yaourt', couleur: 'Jaune', pouvoir: 'Voler', chef: 'Maël', code: '7351',
+  };
+  assert.equal((await appel('POST', 'visiteurs/entree', { reponses: rep }, null, '', '10.0.2.1')).acces, 'NON');
+  await assert.rejects(appel('POST', 'visiteurs/completer', { id: 'v-ancien-copain', ...rep }), /chefs/);
+  const c = await appel('POST', 'visiteurs/completer', { id: 'v-ancien-copain', ...rep, code: '' }, jeton);
+  assert.deepEqual(c.visiteur.manquants, []);
+  assert.equal((await appel('GET', 'etat')).visiteursIncomplets, 0);
+  assert.equal((await appel('POST', 'visiteurs/entree', { reponses: rep }, null, '', '10.0.2.2')).acces, 'OUI');
 });

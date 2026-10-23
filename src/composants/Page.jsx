@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import Logo from './Logo.jsx';
-import { ecrireSession, lireSession } from '../lib/api.js';
+import { api, ecrireSession, lireSession } from '../lib/api.js';
 
 export function useSession() {
   const [session, setSession] = useState(lireSession);
@@ -12,9 +12,28 @@ export function useSession() {
   return session;
 }
 
+// Alerte en haut de chaque page quand un visiteur n'a pas toutes ses données.
+function AlerteVisiteurs() {
+  const [nb, setNb] = useState(0);
+  useEffect(() => {
+    const charger = () => api('etat').then((e) => setNb(e.visiteursIncomplets || 0)).catch(() => {});
+    charger();
+    window.addEventListener('m2-etat', charger);
+    return () => window.removeEventListener('m2-etat', charger);
+  }, []);
+  if (!nb) return null;
+  return (
+    <div className="bandeau-alarme pas-imprimer" role="alert">
+      <span>⚠ IL MANQUE DES DONNÉES À {nb > 1 ? `${nb} VISITEURS` : 'UN VISITEUR'}</span>
+      <a href="/visiteurs#chefs">Un chef doit compléter sa fiche</a>
+    </div>
+  );
+}
+
 export function Barre() {
   const session = useSession();
   return (
+    <>
     <header className="barre pas-imprimer">
       <div className="barre-int">
         <a href="/" className="barre-marque">
@@ -33,6 +52,8 @@ export function Barre() {
         </div>
       </div>
     </header>
+    <AlerteVisiteurs />
+    </>
   );
 }
 
