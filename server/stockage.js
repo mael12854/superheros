@@ -14,6 +14,9 @@ async function blob() {
 }
 
 function cheminSur(chemin) {
+  if (!avecBlob && process.env.VERCEL) {
+    throw new Error('Store Vercel Blob non relié : ajoute un store Blob PRIVÉ au projet (Storage → Blob), puis redéploie.');
+  }
   if (!/^[a-z0-9][a-z0-9/_.-]*$/i.test(chemin) || chemin.includes('..')) {
     throw new Error('Chemin interdit : ' + chemin);
   }

@@ -709,7 +709,8 @@ export async function gerer(req, res) {
     if (e instanceof ErreurHttp) return envoyer(res, e.statut, { erreur: e.message, ...e.extra });
     if (e instanceof SyntaxError) return envoyer(res, 400, { erreur: 'Requête illisible.' });
     console.error(e);
-    envoyer(res, 500, { erreur: 'Erreur du serveur.' });
+    const message = /Store Vercel Blob non relié/.test(e?.message) ? e.message : 'Erreur du serveur.';
+    envoyer(res, 500, { erreur: message });
   }
 }
 
