@@ -1,10 +1,11 @@
 // Le « carnet du vigile » : lecture et écriture des fichiers de l'Agence.
-// En ligne : Vercel Blob en accès PRIVÉ (variable BLOB_READ_WRITE_TOKEN).
+// En ligne : Vercel Blob en accès PRIVÉ (BLOB_STORE_ID avec le jeton OIDC de Vercel,
+// ou l'ancienne clé BLOB_READ_WRITE_TOKEN).
 // Sur l'ordinateur (sans jeton) : un dossier local .donnees/ pour tester.
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
-const avecBlob = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+const avecBlob = Boolean(process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID);
 const DOSSIER_LOCAL = path.resolve(process.env.DOSSIER_DONNEES || '.donnees');
 
 let blobSdk;

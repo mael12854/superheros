@@ -21,7 +21,7 @@ Variables d'environnement à régler dans Vercel → Settings → Environment Va
 
 | Variable | Rôle |
 | --- | --- |
-| `BLOB_READ_WRITE_TOKEN` | Ajoutée toute seule quand on relie un store **Blob privé** au projet (Storage → Blob). |
+| `BLOB_STORE_ID` | Ajoutée toute seule quand on relie un store **Blob privé** au projet (Storage → Blob). Le site s'y connecte avec le jeton OIDC de Vercel, sans clé à copier. |
 | `SESSION_SECRET` | Au moins 32 caractères au hasard. Signe les sessions des chefs. |
 | `CODE_ADMIN` | Le code admin (chiffres). Ouvre tous les outils chef et sert à installer le QG. **Jamais dans le code.** |
 
@@ -35,7 +35,7 @@ npm run dev     # site sur http://localhost:5173, API sur :3001, données dans .
 npm test        # vérifie les règles de la charte
 ```
 
-Sans `BLOB_READ_WRITE_TOKEN`, les données sont rangées dans le dossier `.donnees/` (ignoré par git).
+Sans `BLOB_STORE_ID` (ni `BLOB_READ_WRITE_TOKEN`), les données sont rangées dans le dossier `.donnees/` (ignoré par git).
 
 ## Où sont les choses
 

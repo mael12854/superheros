@@ -7,6 +7,7 @@ import path from 'node:path';
 
 process.env.DOSSIER_DONNEES = mkdtempSync(path.join(tmpdir(), 'm2-'));
 delete process.env.BLOB_READ_WRITE_TOKEN;
+delete process.env.BLOB_STORE_ID;
 const { router, codeTropFacile } = await import('../server/routes.js');
 const { ageLe, aujourdhui } = await import('../server/temps.js');
 
