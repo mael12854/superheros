@@ -1,0 +1,22 @@
+// Les 18 outils de la charte (section 09) + la charte elle-même.
+export const OUTILS = [
+  { chemin: '/entree', nom: 'Contrôle d\'entrée', etiq: 'priorite', texte: '16 questions, une par écran. Le site répond OUI ou NON à la fin.' },
+  { chemin: '/sortie', nom: 'Contrôle de sortie', etiq: 'priorite', texte: '8 questions vérifiées une par une. Faute d\'1 lettre acceptée.' },
+  { chemin: '/inscription', nom: 'Fiche d\'inscription', etiq: 'priorite', chef: true, texte: 'Crée un nouvel agent : tous les champs + photo.' },
+  { chemin: '/code', nom: 'Générateur de code secret', etiq: 'priorite', chef: true, texte: '4 chiffres au hasard, jamais 1234, 0000, 1111 ni un code déjà pris.' },
+  { chemin: '/registre', nom: 'Registre des visiteurs', etiq: 'priorite', texte: 'Qui est entré, qui est sorti, à quelle heure. Filtre par date.' },
+  { chemin: '/badge', nom: 'Badge imprimable', etiq: 'priorite', chef: true, texte: 'Carte 85 × 54 mm : photo, nom de héros, n° d\'agent, logo.' },
+  { chemin: '/visiteurs', nom: 'Comptes visiteurs', etiq: 'nouveau', texte: 'Famille ou copain ? Crée ton compte visiteur, un chef le valide.' },
+  { chemin: '/presents', nom: 'Qui est au QG ?', etiq: 'bonus', texte: 'Écran géant : vert = dedans, gris = dehors.' },
+  { chemin: '/alarme', nom: 'Alarme', etiq: 'bonus', texte: 'Rouge clignotant + son après 3 NON. Seul un chef peut l\'arrêter.' },
+  { chemin: '/mot-du-jour', nom: 'Mot de passe du jour', etiq: 'bonus', chef: true, texte: 'Un mot qui change chaque matin.' },
+  { chemin: '/messages', nom: 'Messages secrets', etiq: 'bonus', texte: 'Code et décode avec le code César.' },
+  { chemin: '/missions', nom: 'Journal de mission', etiq: 'bonus', texte: 'Nom, date, agents, résultat.' },
+  { chemin: '/anniversaires', nom: 'Anniversaires', etiq: 'bonus', texte: 'Les prochains anniversaires des agents.' },
+  { chemin: '/menu', nom: 'Menu du QG', etiq: 'bonus', texte: 'Entrée-plat-dessert avec les plats préférés des agents présents.' },
+  { chemin: '/recrutement', nom: 'Test de recrutement', etiq: 'bonus', texte: 'Quiz pour devenir agent.' },
+  { chemin: '/diplome', nom: 'Diplôme d\'agent', etiq: 'bonus', chef: true, texte: 'Certificat A4 avec les signatures des chefs.' },
+  { chemin: '/gadgets', nom: 'Inventaire des gadgets', etiq: 'bonus', texte: 'Qui a emprunté quoi, et quand le rendre.' },
+  { chemin: '/liste-rouge', nom: 'Liste rouge', etiq: 'bonus', chef: true, texte: 'Personnes interdites au QG. Accès refusé direct.' },
+  { chemin: '/chrono', nom: 'Chronomètre de mission', etiq: 'bonus', texte: 'Compte à rebours plein écran, alarme à la fin.' },
+];

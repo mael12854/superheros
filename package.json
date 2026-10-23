@@ -1,0 +1,26 @@
+{
+  "name": "agence-m2",
+  "version": "1.0.0",
+  "description": "Le QG de l’Agence M² : contrôle d’entrée/sortie et outils des super-héros",
+  "scripts": {
+    "dev": "node server/dev.js & vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "node --test tests/*.test.js"
+  },
+  "dependencies": {
+    "@vercel/blob": "^2.8.2",
+    "bcryptjs": "^3.0.3",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.1.2",
+    "vite": "^8.3.5"
+  },
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  }
+}
