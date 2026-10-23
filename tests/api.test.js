@@ -199,3 +199,11 @@ test('code admin = le premier chef (un seul compte)', async () => {
   assert.equal((await appel('GET', 'alarme')).arreteePar, 'Captain Circuit');
   delete process.env.CODE_ADMIN;
 });
+
+test('un chef peut modifier la fiche d\'un agent (dessert préféré)', async () => {
+  await assert.rejects(appel('POST', 'agents/modifier', { id: 'turbo-marin', dessert: 'Tiramisu' }), /chefs/);
+  const r = await appel('POST', 'agents/modifier', { id: 'turbo-marin', dessert: 'Tiramisu' }, jeton);
+  assert.equal(r.agent.dessert, 'Tiramisu');
+  assert.equal(r.agent.nomHeros, 'Turbo Marin');
+  assert.equal(r.agent.codeHache, undefined);
+});

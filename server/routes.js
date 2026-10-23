@@ -635,6 +635,27 @@ export async function router(methode, route, req, corps, query) {
       return { ok: true };
     }
 
+    case 'POST agents/modifier': {
+      // Changer les réponses d'un agent. Le nom de héros ne change pas (il sert d'identifiant).
+      await exigerChef(req);
+      const agent = await lireAgent(corps.id);
+      if (!agent) throw new ErreurHttp(404, 'Agent introuvable.');
+      for (const champ of CHAMPS_TEXTE.filter((c) => c !== 'nomHeros')) {
+        if (corps[champ] === undefined) continue;
+        const v = String(corps[champ]).trim().slice(0, 120);
+        if (!v) throw new ErreurHttp(400, `Le champ « ${champ} » est vide.`);
+        if (champ === 'codePostal' && chiffres(v).length !== 5) throw new ErreurHttp(400, 'Le code postal doit avoir 5 chiffres.');
+        agent[champ] = champ === 'codePostal' ? chiffres(v) : v;
+      }
+      if (corps.dateNaissance !== undefined) {
+        const d = dateISO(corps.dateNaissance);
+        if (!d) throw new ErreurHttp(400, 'Date de naissance invalide (JJ / MM / AAAA).');
+        agent.dateNaissance = d;
+      }
+      await ecrireJSON(`agents/${agent.id}.json`, agent);
+      return { ok: true, agent: agentSansSecret(agent) };
+    }
+
     case 'POST agents/code': {
       await exigerChef(req);
       const agent = await lireAgent(corps.id);

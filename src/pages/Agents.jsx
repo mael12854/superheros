@@ -2,8 +2,45 @@ import { useState } from 'react';
 import Page from '../composants/Page.jsx';
 import { ReserveChef } from '../composants/Chef.jsx';
 import { useAgents } from '../composants/ChoixAgent.jsx';
-import { ChampCode } from '../composants/Champs.jsx';
+import { Champ, ChampCode } from '../composants/Champs.jsx';
+import { CHAMPS_FICHE } from '../composants/FormAgent.jsx';
 import { api } from '../lib/api.js';
+
+// Modifier les réponses d'un agent (sauf le nom de héros).
+function Modifier({ agent, fermer, apres }) {
+  const depart = { ...agent, dateNaissance: agent.dateNaissance.split('-').reverse().join(' / ') };
+  const [f, setF] = useState(depart);
+  const [erreur, setErreur] = useState('');
+  async function enregistrer(e) {
+    e.preventDefault();
+    setErreur('');
+    const changes = {};
+    for (const c of CHAMPS_FICHE) if (c.cle !== 'nomHeros' && f[c.cle] !== depart[c.cle]) changes[c.cle] = f[c.cle];
+    try {
+      await api('agents/modifier', { methode: 'POST', corps: { id: agent.id, ...changes } });
+      apres();
+    } catch (err) { setErreur(err.message); }
+  }
+  return (
+    <form className="carte ombre" onSubmit={enregistrer}>
+      <h3>Modifier la fiche de {agent.nomHeros}</h3>
+      <p style={{ fontSize: 15 }}>Attention : l'agent devra donner ces nouvelles réponses au contrôle d'entrée.</p>
+      <div className="grille" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))' }}>
+        {CHAMPS_FICHE.filter((c) => c.cle !== 'nomHeros').map((c) => (
+          <label key={c.cle} className="etiquette">
+            <span>{c.label}</span>
+            <Champ type={c.type} valeur={f[c.cle] || ''} onChange={(v) => setF((x) => ({ ...x, [c.cle]: v }))} maxLength={c.maxLength || 120} required />
+          </label>
+        ))}
+      </div>
+      {erreur && <div className="erreur" role="alert">{erreur}</div>}
+      <div className="rangee">
+        <button className="btn principal" type="submit">Enregistrer</button>
+        <button className="btn" type="button" onClick={fermer}>Annuler</button>
+      </div>
+    </form>
+  );
+}
 
 function NouveauCode({ agent, fermer }) {
   const [code, setCode] = useState('');
@@ -32,6 +69,7 @@ function NouveauCode({ agent, fermer }) {
 function Liste() {
   const { agents, erreur, charger } = useAgents();
   const [ouvert, setOuvert] = useState(null);
+  const [modif, setModif] = useState(null);
   async function retirer(a) {
     if (!window.confirm(`Retirer ${a.nomHeros} de l'Agence ? Sa fiche et sa photo seront effacées.`)) return;
     try { await api(`agents?id=${a.id}`, { methode: 'DELETE' }); charger(); } catch (e) { window.alert(e.message); }
@@ -53,6 +91,7 @@ function Liste() {
                 <td>{a.ville}</td>
                 <td><span className={`pastille ${a.role === 'chef' ? 'rouge' : 'bleu'}`}>{a.role.toUpperCase()}</span></td>
                 <td className="rangee">
+                  <button className="btn principal petit" type="button" onClick={() => { setModif(a); window.scrollTo(0, document.body.scrollHeight); }}>Modifier</button>
                   <a className="btn petit" href={`/badge?id=${a.id}`}>Badge</a>
                   <button className="btn petit" type="button" onClick={() => setOuvert(a)}>Code</button>
                   <button className="btn petit danger" type="button" onClick={() => retirer(a)}>Retirer</button>
@@ -63,6 +102,7 @@ function Liste() {
         </table>
       </div>
       {ouvert && <NouveauCode agent={ouvert} fermer={() => setOuvert(null)} />}
+      {modif && <Modifier key={modif.id} agent={modif} fermer={() => setModif(null)} apres={() => { setModif(null); charger(); }} />}
     </div>
   );
 }
