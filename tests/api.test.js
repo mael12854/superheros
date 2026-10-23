@@ -219,3 +219,15 @@ test('un chef peut modifier la fiche d\'un visiteur (et son code)', async () => 
   };
   assert.equal((await appel('POST', 'visiteurs/entree', { reponses: rep }, null, '', '10.0.9.1')).acces, 'OUI');
 });
+
+test('le code admin marche aussi à l\'entrée et à la sortie pour le premier chef', async () => {
+  process.env.CODE_ADMIN = '987650';
+  const entree = await appel('POST', 'entree', { reponses: { ...bonnesReponses(), code: '987650' } }, null, '', '10.6.0.1');
+  assert.equal(entree.acces, 'OUI');
+  const rep = { nomHeros: 'Captain Circuit', dateNaissance: '12/03/2016', ville: 'Rennes', plat: 'Lasagnes', couleur: 'Bleu', destination: 'Parc', retour: '18:30', code: '987650' };
+  assert.equal((await appel('POST', 'sortie/etape', { etape: 8, reponses: rep }, null, '', '10.6.0.2')).acces, 'OUI');
+  // Pas pour les autres agents
+  const marin = { nomHeros: 'Turbo Marin', dateNaissance: '05/11/2019', ville: 'Rennes', plat: 'Galette', couleur: 'Bleu', destination: 'Parc', retour: '18:30', code: '987650' };
+  assert.equal((await appel('POST', 'sortie/etape', { etape: 8, reponses: marin }, null, '', '10.6.0.3')).acces, 'NON');
+  delete process.env.CODE_ADMIN;
+});

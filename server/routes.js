@@ -173,7 +173,7 @@ async function verifierEntree(reponses) {
     identique(r.chef, agent.chef),
     chiffres(r.lettres) === String(compterLettres(agent.nomHeros)),
   ];
-  const codeOk = await bcrypt.compare(String(r.code ?? ''), agent.codeHache);
+  const codeOk = await codeAgentOk(agent, r.code);
   return tests.every(Boolean) && codeOk ? agent : null;
 }
 
@@ -385,7 +385,7 @@ async function routeSortieEtape(req, corps) {
   if (estBloque(compteur)) {
     return { statut: 429, corps: { acces: 'NON', etape, message: 'Trop d\'essais d\'un coup. Attends un peu, puis réessaie.', bloqueJusqua: compteur.bloqueJusqua } };
   }
-  if (!(await bcrypt.compare(String(r.code ?? ''), agent.codeHache))) {
+  if (!(await codeAgentOk(agent, r.code))) {
     const maintenant = Date.now();
     const fenetre = compteur.fenetre && maintenant - compteur.fenetre < 10 * 60 * 1000 ? compteur.fenetre : maintenant;
     const echecs = fenetre === compteur.fenetre ? (compteur.echecs || 0) + 1 : 1;
@@ -400,6 +400,12 @@ async function routeSortieEtape(req, corps) {
 }
 
 // ---------- Chefs ----------
+
+// Code d'un agent : son code à lui. Pour le premier chef (SuperMaël), le code admin marche aussi.
+async function codeAgentOk(agent, code) {
+  if (await bcrypt.compare(String(code ?? ''), agent.codeHache)) return true;
+  return codeAdminOk(code) && agent.id === (await chefAdmin())?.id;
+}
 
 // Le code admin vit seulement dans les variables d'environnement Vercel (CODE_ADMIN).
 function codeAdminOk(code) {
