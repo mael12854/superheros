@@ -252,3 +252,13 @@ test('visiteur pas encore validé : message clair avec le bon code, sans compter
   await appel('POST', 'visiteurs/statut', { id: 'v-adeline-domenech', statut: 'valide' }, jeton);
   assert.equal((await appel('POST', 'visiteurs/sortie', { reponses: { prenom: 'Adeline', nom: 'Domenech', code: '3958' } }, null, '', '10.5.0.3')).acces, 'OUI');
 });
+
+test('chef : tester le code d\'un visiteur', async () => {
+  await assert.rejects(appel('POST', 'visiteurs/tester', { id: 'v-adeline-domenech', code: '3958' }), /chefs/);
+  const bon = await appel('POST', 'visiteurs/tester', { id: 'v-adeline-domenech', code: '3958' }, jeton);
+  assert.equal(bon.codeOk, true);
+  assert.equal(bon.etatCompte, 'valide');
+  const faux = await appel('POST', 'visiteurs/tester', { id: 'v-adeline-domenech', code: '9999' }, jeton);
+  assert.equal(faux.codeOk, false);
+  assert.equal(JSON.stringify(faux).includes('codeHache'), false);
+});

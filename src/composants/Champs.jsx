@@ -16,9 +16,16 @@ export function ChampCode({ valeur, onChange, sombre = false, autoFocus = false,
       <input
         ref={ref}
         aria-label="Code secret (4 à 6 chiffres)"
-        type="password"
+        // Pas type="password" : sinon le navigateur y colle tout seul un code enregistré
+        // (par exemple le code admin) sans qu'on le voie. Le champ est invisible de toute façon.
+        type="text"
+        name="m2-code-cases"
         inputMode="numeric"
         autoComplete="off"
+        autoCorrect="off"
+        spellCheck={false}
+        data-lpignore="true"
+        data-1p-ignore="true"
         maxLength={6}
         autoFocus={autoFocus}
         value={valeur}

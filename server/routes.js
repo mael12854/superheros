@@ -586,6 +586,15 @@ export async function router(methode, route, req, corps, query) {
       await exigerChef(req);
       return { visiteurs: (await tousLesVisiteurs()).map((v) => ({ ...visiteurSansSecret(v), manquants: champsManquants(v) })) };
 
+    case 'POST visiteurs/tester': {
+      // Pour un chef : savoir si un code est le bon et ce qui bloque, sans jamais montrer le code.
+      await exigerChef(req);
+      const v = await lireVisiteur(corps.id);
+      if (!v) throw new ErreurHttp(404, 'Visiteur introuvable.');
+      const codeOk = Boolean(v.codeHache) && (await bcrypt.compare(String(corps.code ?? ''), v.codeHache));
+      return { codeOk, etatCompte: v.statut, manquants: champsManquants(v) };
+    }
+
     case 'POST visiteurs/completer': {
       await exigerChef(req);
       const v = await lireVisiteur(corps.id);

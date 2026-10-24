@@ -69,6 +69,7 @@ function FicheChef({ visiteur, mode, fermer, apres }) {
     : (visiteur[c.cle] || '')]));
   const [f, setF] = useState(modifier ? depart : {});
   const [code, setCode] = useState('');
+  const [changerCode, setChangerCode] = useState(false);
   const [erreur, setErreur] = useState('');
   // Prénom et nom forment l'identifiant du compte : on ne les change pas.
   const champs = CHAMPS_VISITEUR.filter((c) => c.cle !== 'prenom' && c.cle !== 'nom' && (modifier || visiteur.manquants.includes(c.cle)));
@@ -80,7 +81,7 @@ function FicheChef({ visiteur, mode, fermer, apres }) {
     const changes = {};
     for (const c of champs) if (f[c.cle] && f[c.cle] !== depart[c.cle]) changes[c.cle] = f[c.cle];
     try {
-      await api('visiteurs/completer', { methode: 'POST', corps: { id: visiteur.id, ...changes, code } });
+      await api('visiteurs/completer', { methode: 'POST', corps: { id: visiteur.id, ...changes, code: manqueCode || changerCode ? code : '' } });
       apres();
     } catch (err) { setErreur(err.message); }
   }
@@ -100,18 +101,53 @@ function FicheChef({ visiteur, mode, fermer, apres }) {
             <Champ type={c.type} valeur={f[c.cle] || ''} onChange={(v) => setF((x) => ({ ...x, [c.cle]: v }))} maxLength={c.maxLength || 120} required />
           </label>
         ))}
-        {(manqueCode || modifier) && (
+        {(manqueCode || changerCode) && (
           <div className="etiquette">
-            <span>{manqueCode ? 'Son code secret' : 'Nouveau code secret (laisse vide pour garder l\'ancien)'}</span>
+            <span>{manqueCode ? 'Son code secret' : 'Son nouveau code secret'}</span>
             <ChampCode valeur={code} onChange={setCode} montrer />
+          </div>
+        )}
+        {modifier && !manqueCode && !changerCode && (
+          <div className="etiquette" style={{ justifyContent: 'flex-end' }}>
+            <button className="btn petit" type="button" onClick={() => setChangerCode(true)}>Changer son code secret</button>
           </div>
         )}
       </div>
       {erreur && <div className="erreur" role="alert">{erreur}</div>}
       <div className="rangee">
-        <button className="btn principal" type="submit" disabled={(manqueCode && code.length < 4) || (code.length > 0 && code.length < 4)}>Enregistrer</button>
+        <button className="btn principal" type="submit" disabled={((manqueCode || changerCode) && code.length < 4)}>Enregistrer</button>
         <button className="btn" type="button" onClick={fermer}>Annuler</button>
       </div>
+    </form>
+  );
+}
+
+// Pour un chef : vérifier le code d'un visiteur et voir exactement ce qui bloque.
+function TesterCode({ visiteur, fermer }) {
+  const [code, setCode] = useState('');
+  const [r, setR] = useState(null);
+  const [erreur, setErreur] = useState('');
+  async function tester(e) {
+    e?.preventDefault();
+    setErreur('');
+    try { setR(await api('visiteurs/tester', { methode: 'POST', corps: { id: visiteur.id, code } })); } catch (err) { setErreur(err.message); }
+  }
+  const verdict = r && (
+    !r.codeOk ? ['rouge', 'Ce n\'est PAS son code. Clique « Modifier » puis « Changer son code secret » pour lui en donner un nouveau.']
+      : r.etatCompte !== 'valide' ? ['jaune', 'Le code est bon, mais le compte n\'est pas validé. Clique « Valider ».']
+      : r.manquants.length ? ['jaune', 'Le code est bon, mais il manque des données (entrée refusée). Clique « Compléter ».']
+      : ['vert', 'Le code est bon et le compte est en règle : l\'entrée et la sortie doivent marcher.']
+  );
+  return (
+    <form className="carte nuit ombre" onSubmit={tester}>
+      <h3>Tester le code de {visiteur.prenom} {visiteur.nom}</h3>
+      <ChampCode valeur={code} onChange={(v) => { setCode(v); setR(null); }} sombre montrer onValider={tester} />
+      <div className="rangee">
+        <button className="btn principal" type="submit" disabled={code.length < 4}>Tester</button>
+        <button className="btn" type="button" onClick={fermer}>Fermer</button>
+      </div>
+      {verdict && <div className={`pastille ${verdict[0]}`} style={{ fontSize: 15, padding: '8px 12px', borderRadius: 10, whiteSpace: 'normal' }}>{verdict[1]}</div>}
+      {erreur && <div className="erreur" style={{ color: '#ff8a7d' }}>{erreur}</div>}
     </form>
   );
 }
@@ -119,6 +155,7 @@ function FicheChef({ visiteur, mode, fermer, apres }) {
 function PanneauChef() {
   const [liste, setListe] = useState(null);
   const [ouvert, setOuvert] = useState(null);
+  const [test, setTest] = useState(null);
   const charger = () => api('visiteurs').then((r) => setListe(r.visiteurs)).catch(() => {});
   useEffect(() => { charger(); }, []);
 
@@ -141,6 +178,7 @@ function PanneauChef() {
         </div>
       )}
       {ouvert && <FicheChef key={ouvert.v.id + ouvert.mode} visiteur={ouvert.v} mode={ouvert.mode} fermer={() => setOuvert(null)} apres={() => { setOuvert(null); charger(); window.dispatchEvent(new Event('m2-etat')); }} />}
+      {test && <TesterCode key={test.id} visiteur={test} fermer={() => setTest(null)} />}
       {liste?.length === 0 && <p>Aucun compte visiteur.</p>}
       {liste?.length > 0 && (
         <div className="defile">
@@ -167,6 +205,7 @@ function PanneauChef() {
                     {v.statut === 'valide'
                       ? <button className="btn petit" type="button" onClick={() => statut(v, 'en-attente')}>Suspendre</button>
                       : <button className="btn principal petit" type="button" onClick={() => statut(v, 'valide')}>Valider</button>}
+                    <button className="btn petit" type="button" onClick={() => { setTest(v); window.scrollTo(0, 0); }}>Tester un code</button>
                     <button className="btn petit" type="button" onClick={() => effacer(v)}>Effacer</button>
                   </td>
                 </tr>
