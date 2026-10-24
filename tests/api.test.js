@@ -231,3 +231,24 @@ test('le code admin marche aussi à l\'entrée et à la sortie pour le premier c
   assert.equal((await appel('POST', 'sortie/etape', { etape: 8, reponses: marin }, null, '', '10.6.0.3')).acces, 'NON');
   delete process.env.CODE_ADMIN;
 });
+
+test('visiteur pas encore validé : message clair avec le bon code, sans compter d\'erreur', async () => {
+  const f = {
+    prenom: 'Adeline', nom: 'Domenech', lien: 'Maman', dateNaissance: '01/02/1985', adresse: '4 rue des Lilas',
+    codePostal: '35000', ville: 'Rennes', entree: 'Salade', plat: 'Risotto', dessert: 'Tarte', couleur: 'Rose',
+    pouvoir: 'Tout savoir', chef: 'Maël', code: '3958',
+  };
+  await appel('POST', 'visiteurs', f);
+  const s1 = await appel('POST', 'visiteurs/sortie', { reponses: { prenom: 'Adeline', nom: 'Domenech', code: '3958' } }, null, '', '10.5.0.1');
+  assert.match(s1.message, /pas encore validé/);
+  const s2 = await appel('POST', 'visiteurs/sortie', { reponses: { prenom: 'Adeline', nom: 'Domenech', code: '1111' } }, null, '', '10.5.0.1');
+  assert.doesNotMatch(s2.message, /validé/, 'mauvais code : on ne dit rien');
+  const rep = { ...f, age: String(ageLe('1985-02-01')) };
+  for (let i = 0; i < 3; i++) {
+    const e = await appel('POST', 'visiteurs/entree', { reponses: rep }, null, '', '10.5.0.2');
+    assert.match(e.message, /pas encore validé/);
+    assert.notEqual(e.alarme, true, 'pas d\'alarme pour un compte en attente');
+  }
+  await appel('POST', 'visiteurs/statut', { id: 'v-adeline-domenech', statut: 'valide' }, jeton);
+  assert.equal((await appel('POST', 'visiteurs/sortie', { reponses: { prenom: 'Adeline', nom: 'Domenech', code: '3958' } }, null, '', '10.5.0.3')).acces, 'OUI');
+});

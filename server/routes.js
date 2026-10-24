@@ -184,6 +184,7 @@ async function controleEntree(req, verifier) {
     return { statut: 423, corps: { acces: 'NON', bloque: true, bloqueJusqua: compteur.bloqueJusqua, message: 'Clavier bloqué. Attends la fin du compte à rebours.' } };
   }
   const qui = await verifier();
+  if (qui?.attente) return { acces: 'NON', message: qui.attente }; // pas compté comme une erreur
   if (qui) {
     await ecrireCompteur('entree', req, { echecs: 0, bloqueJusqua: 0 });
     const h = await noter('entree', qui, qui.visiteur ? { visiteur: true } : {});
@@ -293,8 +294,10 @@ async function verifierEntreeVisiteur(r) {
   if (await surListeRouge({ nomHeros: '', prenom: r.prenom, nom: r.nom })) return null;
   const v = await lireVisiteur(idVisiteur(r.prenom, r.nom));
   const codeOk = await bcrypt.compare(String(r.code ?? ''), v?.codeHache || HACHE_LEURRE);
-  // Un visiteur à qui il manque des données ne peut pas entrer.
-  if (!v || v.statut !== 'valide' || !codeOk || champsManquants(v).length > 0) return null;
+  if (!v || !codeOk) return null;
+  // Bon code : on peut dire clairement ce qui bloque (compte pas validé, fiche incomplète).
+  if (v.statut !== 'valide') return { attente: 'Ton compte visiteur n\'est pas encore validé. Demande à Maël ou Marin de le valider.' };
+  if (champsManquants(v).length > 0) return { attente: 'Il manque des données à ta fiche visiteur. Demande à un chef de la compléter.' };
   const tests = [
     identique(r.prenom, v.prenom),
     identique(r.nom, v.nom),
@@ -327,6 +330,10 @@ async function routeSortieVisiteur(req, corps) {
     v = proches.length === 1 ? proches[0] : null;
   }
   const codeOk = await bcrypt.compare(String(r.code ?? ''), v?.codeHache || HACHE_LEURRE);
+  // Bon code mais compte pas validé : on le dit clairement (seulement après un code juste).
+  if (v && codeOk && v.statut !== 'valide') {
+    return { acces: 'NON', message: 'Ton compte visiteur n\'est pas encore validé. Demande à Maël ou Marin de le valider.' };
+  }
   if (!v || v.statut !== 'valide' || !codeOk) {
     const maintenant = Date.now();
     const fenetre = compteur.fenetre && maintenant - compteur.fenetre < 10 * 60 * 1000 ? compteur.fenetre : maintenant;
