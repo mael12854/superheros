@@ -71,8 +71,7 @@ function FicheChef({ visiteur, mode, fermer, apres }) {
   const [code, setCode] = useState('');
   const [changerCode, setChangerCode] = useState(false);
   const [erreur, setErreur] = useState('');
-  // Prénom et nom forment l'identifiant du compte : on ne les change pas.
-  const champs = CHAMPS_VISITEUR.filter((c) => c.cle !== 'prenom' && c.cle !== 'nom' && (modifier || visiteur.manquants.includes(c.cle)));
+  const champs = CHAMPS_VISITEUR.filter((c) => modifier || visiteur.manquants.includes(c.cle));
   const manqueCode = visiteur.manquants.includes('code');
 
   async function envoyer(e) {
@@ -91,7 +90,7 @@ function FicheChef({ visiteur, mode, fermer, apres }) {
       <h3>{modifier ? 'Modifier' : 'Compléter'} la fiche de {visiteur.prenom} {visiteur.nom}</h3>
       <p style={{ fontSize: 16 }}>
         {modifier
-          ? 'Attention : le visiteur devra donner ces nouvelles réponses au contrôle d\'entrée.'
+          ? 'Attention : le visiteur devra donner ces nouvelles réponses aux contrôles (même le prénom et le nom, à la sortie aussi).'
           : 'Demande-lui ses réponses et écris-les exactement comme il ou elle les dira au contrôle d\'entrée.'}
       </p>
       <div className="grille" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))' }}>

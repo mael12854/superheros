@@ -262,3 +262,23 @@ test('chef : tester le code d\'un visiteur', async () => {
   assert.equal(faux.codeOk, false);
   assert.equal(JSON.stringify(faux).includes('codeHache'), false);
 });
+
+test('chef : changer le prénom d\'un visiteur (« Maman » → « Adeline »)', async () => {
+  const f = {
+    prenom: 'Maman', nom: 'Martin', lien: 'Maman', dateNaissance: '01/02/1985', adresse: '4 rue des Lilas',
+    codePostal: '35000', ville: 'Rennes', entree: 'Salade', plat: 'Risotto', dessert: 'Tarte', couleur: 'Rose',
+    pouvoir: 'Tout savoir', chef: 'Maël', code: '130220',
+  };
+  await appel('POST', 'visiteurs', f);
+  await appel('POST', 'visiteurs/statut', { id: 'v-maman-martin', statut: 'valide' }, jeton);
+  const sortieAvant = await appel('POST', 'visiteurs/sortie', { reponses: { prenom: 'Adeline', nom: 'Martin', code: '130220' } }, null, '', '10.4.0.1');
+  assert.equal(sortieAvant.acces, 'NON', 'avec le mauvais prénom');
+  const r = await appel('POST', 'visiteurs/completer', { id: 'v-maman-martin', prenom: 'Adeline' }, jeton);
+  assert.equal(r.visiteur.id, 'v-adeline-martin');
+  assert.equal(r.visiteur.statut, 'valide');
+  const sortie = await appel('POST', 'visiteurs/sortie', { reponses: { prenom: 'Adeline', nom: 'Martin', code: '130220' } }, null, '', '10.4.0.2');
+  assert.equal(sortie.acces, 'OUI', 'le code est gardé après le changement de prénom');
+  const liste = (await appel('GET', 'visiteurs', {}, jeton)).visiteurs.map((v) => v.id);
+  assert.ok(!liste.includes('v-maman-martin'));
+  await assert.rejects(appel('POST', 'visiteurs/completer', { id: 'v-adeline-martin', prenom: 'Jean', nom: 'Dupont' }, jeton), /déjà ce prénom/);
+});

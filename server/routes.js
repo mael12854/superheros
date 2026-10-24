@@ -600,16 +600,30 @@ export async function router(methode, route, req, corps, query) {
       const v = await lireVisiteur(corps.id);
       if (!v) throw new ErreurHttp(404, 'Visiteur introuvable.');
       const ajouts = nettoyerChampsVisiteur(corps, true);
-      // Le prénom et le nom donnent l'identifiant du compte : on ne les change pas ici.
-      delete ajouts.prenom;
-      delete ajouts.nom;
+      const ancienId = v.id;
       Object.assign(v, ajouts);
+      // Le prénom et le nom donnent l'identifiant du compte : s'ils changent, on déplace la fiche.
+      const nouvelId = idVisiteur(v.prenom, v.nom);
+      if (!nouvelId) throw new ErreurHttp(400, 'Prénom ou nom invalide.');
+      if (nouvelId !== ancienId && (await lireVisiteur(nouvelId))) {
+        throw new ErreurHttp(409, 'Un autre compte visiteur a déjà ce prénom et ce nom.');
+      }
+      v.id = nouvelId;
       if (corps.code) {
         const code = String(corps.code);
         if (codeTropFacile(code)) throw new ErreurHttp(400, 'Code secret trop facile ou invalide.');
         v.codeHache = await bcrypt.hash(code, COUT_BCRYPT);
       }
       await ecrireJSON(`visiteurs/${v.id}.json`, v);
+      if (nouvelId !== ancienId) {
+        await supprimer(`visiteurs/${ancienId}.json`);
+        const presence = await lireJSON('presence.json', {});
+        if (presence[ancienId]) {
+          presence[nouvelId] = presence[ancienId];
+          delete presence[ancienId];
+          await ecrireJSON('presence.json', presence);
+        }
+      }
       return { ok: true, visiteur: { ...visiteurSansSecret(v), manquants: champsManquants(v) } };
     }
 
